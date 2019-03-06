@@ -1,0 +1,109 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>easy anime</title>
+    <script src="{% static 'jquery/jquery.min.js' %}"></script>
+    <script src="{% static 'jquery/jquery.cookie.js' %}"></script>
+    <script src="{% static 'layer/layer.js' %}"></script>
+    <script src="{% static 'bootstrap/js/bootstrap.min.js' %}"></script>
+    <link href="{% static 'bootstrap/css/bootstrap.min.css' %}" rel="stylesheet" />
+</head>
+<body style="background: #f4f4f4;">
+<div style="
+margin: 10% 5% 10% 5%;
+padding: 3% 10% 5% 10%;
+box-shadow: 3px 3px 3px darkgray;
+background: white;
+">
+    <div class="row">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="text-align:center;">
+            <h2>Takanashi Anime Search</h2>
+        </div>
+    </div>
+    <hr>
+    <div class="row">
+        <div class="col-lg-10 col-md-10 col-sm-12 col-xs-12">
+            <input class="form-control" id="kw" placeholder="请输入anime的名称等..." />
+        </div>
+        <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
+            <select class="form-control" id="src-select">
+                <option value="" selected>选择源站</option>
+                {% for site in src_sites %}
+                <option value="{{ site }}">{{ site }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="text-align:center; padding-top: 5%;">
+            <button class="btn btn-primary btn-lg" id="submit">
+                <span class="glyphicon glyphicon-search"></span>获取磁力链接
+            </button>
+        </div>
+    </div>
+    <input type="hidden" id="uuidInput" value="{{ uuid }}" />
+
+</div>
+
+<script>
+    $.ajaxSetup({
+        headers: {'X-CSRFTOKEN': $.cookie('csrftoken')},
+        data: {'csrfmiddlewaretoken': '{{ csrf_token }}'}
+    });
+    $(document).ready(function(){
+        var queryInterval;
+        function queryStatus(){
+            $.ajax({
+                url: '{% url 'query_status' %}',
+                type: 'get',
+                dataType: 'json',
+                data: {
+                    uuid: $('#uuidInput').val()
+                },
+                success: function(data){
+                    layer.open({
+                        type: 1,
+                        content: data.msg,
+                        area: ['75%', '30%']
+                    });
+                },
+                error: function(data){
+                    layer.alert('获取信息失败');
+                    clearInterval(queryInterval);
+                }
+            });
+        }
+
+        $('#submit').click(function(event){
+            var srcSite = $('#src-select').val();
+            if (srcSite === ''){
+                layer.msg('未选择源站');
+                return;
+            }
+            var kw = $('#kw').val();
+            var uuid = $('#uuidInput').val();
+            var load = layer.load('1');
+            queryInterval = setInterval(queryStatus, 3000);
+            $.ajax({
+                url: location.pathname,
+                type: 'post',
+                dataType: 'json',
+                data: {
+                    kw: kw,
+                    uuid: uuid,
+                    src: srcSite
+                },
+                success: function(data){
+
+                },
+                complete: function(){
+                    layer.close(load);
+                }
+            });
+        });
+    });
+</script>
+</body>
+</html>
