@@ -16,9 +16,11 @@ Including another URLconf
 from django.conf.urls import url
 from django.contrib import admin
 
-from views import IndexView, QueryView
+from views import IndexView, ResView, QueryView, MagnetView
 
 urlpatterns = [
     url(r'^$', IndexView.as_view(), name='index'),
+    url(r'^res/$', ResView.as_view(), name='res_list'),
+    url(r'^magnet/$', MagnetView.as_view(), name='magnet_list'),
     url(r'^status/$', QueryView.as_view(), name='query_status')
 ]

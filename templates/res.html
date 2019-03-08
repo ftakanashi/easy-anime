@@ -1,10 +1,172 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <title>easy anime</title>
+    <script src="{% static 'jquery/jquery.min.js' %}"></script>
+    <script src="{% static 'jquery/jquery.cookie.js' %}"></script>
+    <script src="{% static 'layer/layer.js' %}"></script>
+    <script src="{% static 'bootstrap/js/bootstrap.min.js' %}"></script>
+    <link href="{% static 'bootstrap/css/bootstrap.min.css' %}" rel="stylesheet" />
+    <link href="{% static 'bootstrap-table/dist/bootstrap-table.min.css' %}" rel="stylesheet" />
+    <script src="{% static 'bootstrap-table/dist/bootstrap-table.min.js' %}"></script>
+    <script src="{% static 'bootstrap-table/dist/locale/bootstrap-table-zh-CN.min.js' %}"></script>
+    <style>
+        .magnet-title{
+            text-align: center;
+            -moz-user-select: none;
+            -webkit-user-select:none;
+            -ms-user-select:none;
+            user-select:none;
+        }
+        .magnet-content{
+            line-height: 30px;
+            font-size: 17px;
+            text-align: center;
+        }
+    </style>
 </head>
-<body>
+<body style="background: #f4f4f4;">
+<div style="
+margin: 10% 5% 10% 5%;
+padding: 3% 10% 5% 10%;
+box-shadow: 3px 3px 3px darkgray;
+background: white;
+">
+    <div class="row">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="text-align:center;">
+            <h2>结果来自 [{{ src }}]</h2>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div class="alert alert-success alert-dismissable">
+                <button type="button" class="close" data-dismiss="alert">&times;</button>
+                可以勾选一些资源然后点击页面底部的获取磁链，获取所有选中资源的磁力链接
+            </div>
+        </div>
+    </div>
+    <hr>
+    <div class="row">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <table id="res-table"></table>
+        </div>
+    </div>
+    <hr>
+    <div class="row">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <a href="{% url 'index' %}" class="btn btn-default pull-left" role="button">返回主页</a>
+            <button class="btn btn-primary pull-right" id="get-magnet">
+                <span class="glyphicon glyphicon-magnet"></span>获取磁链
+            </button>
+        </div>
+    </div>
+    <input type="hidden" id="uuidInput" value="{{ uuid }}" />
+    <input type="hidden" id="srcInput" value="{{ src }}" />
 
+</div>
+<script>
+    $(document).ready(function(){
+
+        function adaptDMHY(columns){
+            columns.push({
+                field: 'magnet',
+                title: '磁力链接',
+                visible: false
+            });
+            columns.push({
+                field: 'subtitle_by',
+                title: '字幕组',
+                sortable: true
+            });
+        }
+
+        var basicColumns = [
+            {
+                checkbox: true,
+                align: 'center'
+            },{
+                field: 'update_date',
+                title: '上传日期',
+                sortable: true
+            },{
+                field: 'category',
+                title: '分类',
+                sortable: true
+            },{
+                field: 'title',
+                title: '文件名',
+                sortable: true,
+                formatter: function(value, row, index){
+                    return '<a target="_blank" href="'+row.href+'">'+value+'</a>';
+                }
+            },{
+                field: 'href',
+                title: '链接',
+                visible: false
+            },{
+                field: 'size',
+                title: '大小',
+                sortable: true,
+                formatter: function(value, row, index){
+                    var d = parseInt(value);
+                    switch (row.size_unit){
+                        case 'GB': d = d / 1024.0 / 1024.0;break;
+                        case 'MB': d = d / 1024.0;break;
+                        case 'KB': break;
+                        default: break;
+                    }
+                    return d.toFixed(2).toString() + row.size_unit;
+                }
+            }
+        ];
+        var src = $('#srcInput').val();
+        switch(src){
+            case 'kisssub': break;
+            case 'dmhy': adaptDMHY(basicColumns);break;
+        }
+
+        $('#res-table').bootstrapTable({
+            url: location.pathname + '?src='+src+'&cate=d&u=' + $('#uuidInput').val(),
+            columns: basicColumns,
+            pagination: true,
+            sidePagination: 'client',
+            pageNumber: 1,
+            pageSize: 50,
+            pageList: [50, 'All'],
+            search: true,
+            showToggle: true,
+            showColumns: true,
+            clickToSelect: true,
+            maintainSelect: true
+        });
+
+        $('#get-magnet').click(function(event){
+            var selections = $('#res-table').bootstrapTable('getAllSelections');
+            if (selections.length == 0){
+                layer.msg('还未选中任何资源');
+                return;
+            }
+            var mags = [];
+            for(var i=0;i<selections.length;i++){
+                var item = selections[i];
+                if (src === 'kisssub'){
+                    mags.push('magnet:?xt=urn:btih:'+item.href.match(/show\-(.+)\.html/)[1]+'&tr=http://open.acgtracker.com:1096/announce');
+                }
+                else if (src === 'dmhy'){
+                    mags.push(item.magnet);
+                }
+            }
+            layer.open({
+                type: 1,
+                title: false,
+                content: '<h3 class="magnet-title">请复制以下磁链</h3><hr><div class="magnet-content">' + mags.join('<br/>') + '</div>',
+                shade: 0.5,
+                area: ['75%', '80%']
+            });
+        });
+    });
+</script>
 </body>
 </html>

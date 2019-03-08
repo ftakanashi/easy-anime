@@ -1,3 +1,4 @@
+# -*- coding:utf-8 -*-
 """
 Django settings for easy_anime project.
 
@@ -14,7 +15,7 @@ import os
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
+PROJECT_BASE_DIR = os.path.dirname(BASE_DIR)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.11/howto/deployment/checklist/
@@ -24,6 +25,7 @@ SECRET_KEY = '3e$*(w9xhy07i_0xp7)w2cn#z1e(^#--1j7xwn!=)_1xd4)gcf'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+# DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -77,7 +79,7 @@ WSGI_APPLICATION = 'easy_anime.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        'NAME': os.path.join(PROJECT_BASE_DIR, 'db', 'db.sqlite3'),
     }
 }
 
@@ -98,6 +100,11 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_COOKIE_AGE = 43200
 SESSION_CACHE_ALIAS = 'default'
 
+if DEBUG:
+    LOGGING_LEVEL = 'DEBUG'
+else:
+    LOGGING_LEVEL = 'INFO'
+
 LOGGING = {
     'version': 1,
     'disable_existing_logger': True,
@@ -106,19 +113,19 @@ LOGGING = {
             'format': '[%(asctime)s] %(filename)s [L.%(lineno)d] %(levelname)s  %(message)s',
             'datefmt': '%Y-%m-%d %H:%M:%S'
         },
-        'handlers': {
-            'file': {
-                'level': 'INFO',
-                'class': 'logging.handlers.RotatingFileHandler',
-                'filename': os.path.join(BASE_DIR, 'logs','django.log'),
-                'maxBytes': 1024*1024*10, 'backupCount': 5, 'formatter': 'standard'
-            },
+    },
+    'handlers': {
+        'file': {
+            'level': LOGGING_LEVEL,
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(PROJECT_BASE_DIR, 'logs','django.log'),
+            'maxBytes': 1024*1024*10, 'backupCount': 5, 'formatter': 'standard'
         },
-        'loggers': {
-            'easy-anime': {
-                'handlers': ['file'],
-                'level': 'DEBUG'
-            },
+    },
+    'loggers': {
+        'easy-anime': {
+            'handlers': ['file'],
+            'level': LOGGING_LEVEL
         },
     },
 }
@@ -166,4 +173,20 @@ STATICFILES_DIRS = [
 ]
 
 # Personal Settings
-VALID_SRC_SITE = ['kisssub',]
+VALID_SRC_SITE = [{'code': 'kisssub', 'alias': '爱恋BT'},
+                  {'code': 'dmhy', 'alias': '动漫花园'}]
+
+QUERY_KEY = 'easy_anime_log:{}'
+RESLIST_CACHE_KEY = 'easy_anime_res_list_cache:{}'
+
+SSH_PROXY_CONFIG = {
+    'proxy_name': '149.28.76.190',
+    'proxy_port': 18222,
+    'proxy_user': 'root',
+    'proxy_pkey': '/home/ftkblog/.ssh/id_rsa'
+}
+
+PROXY_SCRIPT_PATH = {
+    'list': '/root/hook_scripts/dmhy_spider/list.py',
+    'detail': '/root/hook_scripts/dmhy_spider/detail.py'
+}

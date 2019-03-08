@@ -10,11 +10,18 @@ import traceback
 from Queue import Queue, Empty
 
 from . import Anime, Decoder, Downloader, DownloaderException, Searcher, SearcherException
+from .logger import get_logger
 
+from django.conf import settings
 from django_redis import get_redis_connection
 
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
 redis = get_redis_connection()
-logger = logging.getLogger('easy-anime')
+
+logger = get_logger()
 
 HEADERS = {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -29,7 +36,7 @@ HEADERS = {
 }
 
 class KisssubAnime(Anime):
-    def __init__(self, anime_html):
+    def __init__(self, anime_html, root_url='http://kisssub.org/'):
         tds = anime_html.find_all(name='td')
         self.update_date = tds[0].string.strip()
         self.category = tds[1].string.strip()
@@ -39,73 +46,99 @@ class KisssubAnime(Anime):
                 self.title += item.strip()
             else:
                 self.title += item.string.strip()
-        self.href = tds[2].find(name='a').attrs.get('href')
-        self.size = tds[3].string.strip()
+        self.href = root_url + tds[2].find(name='a').attrs.get('href')
+        self.size, self.size_unit = self._adapt_size(tds[3].string.strip())
         self.magnet = ''
 
     def __str__(self):
         return json.dumps(self.to_dict())
 
+    def _adapt_size(self, size_str):
+        m = re.match('^([\d\.]+)([KMG]B)$', size_str)
+        if m is None:
+            return -1.0, ''
+        else:
+            unit = m.group(2)
+            size = float(m.group(1))
+            if unit == 'GB':
+                size = size * 1024 * 1024
+            elif unit == 'MB':
+                size = size * 1024
+            elif unit == 'KB':
+                size = size
+            return size, unit
+
     def to_dict(self):
         return {'update_date': self.update_date, 'category': self.category, 'title': self.title,
-               'href': self.href, 'size': self.size, 'magnet': self.magnet}
+               'href': self.href, 'size': self.size, 'size_unit': self.size_unit, 'magnet': self.magnet}
 
 class KisssubDecoder(Decoder):
     def decode_for_page(self):
         pages = self.soup.find(name='div', attrs={'class': 'pages clear'})
         if pages is None:
+            logger.debug(str(self.soup).replace('\n',''))
+            logger.debug('没有找到div.pages，请观察上面获取到的HTML')
             return 1
         else:
-            return len(list(pages)) - 2
+            last_page_num = pages.find_all(name=['a','span'])[-2].string
+            return int(last_page_num)
 
     def decode_for_content(self):
         animes = []
         content_list = self.soup.find(attrs={'id': 'data_list'})
-        cnt = 0
-        for anime in content_list.find_all(name='tr'):
-            animes.append(KisssubAnime(anime))
-            cnt += 1
-
-        logger.log(logging.DEBUG, '{} rows of anime decoded.'.format(cnt))
+        if content_list is None:
+            logger.debug(str(self.soup).replace('\n',''))
+            logger.debug('没有找到div#data_list，请观察上面获取到的HTML')
+        elif content_list.find(name='td').string.strip() == '没有可显示资源':
+            pass
+        else:
+            for anime in content_list.find_all(name='tr'):
+                animes.append(KisssubAnime(anime))
 
         return animes
 
 class KisssubSearcher(Searcher):
-    QUERY_KEY = 'easy_anime_log:{}'
+    QUERY_KEY = settings.QUERY_KEY
     def __init__(self, uuid, root_url='http://kisssub.org/'):
         self.root_url = root_url
-        key = self.QUERY_KEY.format(uuid)
-        def _log(level, msg):
-            logger.log(level, msg)
-            if level in (logging.DEBUG, logging.INFO):
-                redis.rpush(key, msg)
+        self.key = self.QUERY_KEY.format(uuid)
 
-        self.log = _log
+    def log(self, level, msg):
+        logger.log(level, msg)
+        redis.rpush(self.key, msg)
+        redis.expire(self.key, 60)
 
     def search(self, kw):
         search_res = []
         query_url = self.root_url + 'search.php'
-        self.log(logging.DEBUG, 'Main query url is [{}]'.format(query_url))
+
+        emph = lambda x: '<span class="label label-primary">' + str(x) + '</span>'
+
+        self.log(logging.DEBUG, '请求URL为[{}]'.format(emph(query_url)))
 
         first_page = self.query_for_page(query_url, kw)
-
         decoder = KisssubDecoder(first_page)
         page_num = decoder.decode_for_page()
-        self.log(logging.DEBUG, 'Fetched [{}] pages while searching for [{}]'.format(page_num, kw))
-        search_res.extend(decoder.decode_for_content())
+        self.log(logging.DEBUG, '总共找到了 [{}] 页与关键词 [{}] 相关内容'.format(emph(page_num), emph(kw)))
+        page_res = decoder.decode_for_content()
+        self.log(logging.DEBUG, '在第 {} 页上发现了 [{}] 行内容'.format(emph(1), emph(len(page_res))))
+        search_res.extend(page_res)
 
         for i in range(page_num - 1):
             page_idx = i + 2
             page = self.query_for_page(query_url, kw, page_idx=page_idx)
             decoder = KisssubDecoder(page)
-            search_res.extend(decoder.decode_for_content())
+            page_res = decoder.decode_for_content()
+            self.log(logging.DEBUG, '在第 {} 页上发现了 [{}] 行内容'.format(emph(page_idx), emph(len(page_res))))
+            search_res.extend(page_res)
 
+        self.log(logging.DEBUG, '所有信息都收集完毕')
         return search_res
 
     def query_for_page(self, query_url, kw, page_idx=1):
-        self.log(logging.DEBUG, 'Query for page[{}] with keyword [{}]'.format(
-            page_idx, kw
-        ))
+        emph = lambda x: '<span class="label label-primary">' + str(x) + '</span>'
+
+        self.log(logging.DEBUG, '正在请求第 {} 页，关键词是 [{}]'.format(emph(page_idx), emph(kw)))
         p = {
             'keyword': kw,
             'page': page_idx

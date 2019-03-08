@@ -2,17 +2,15 @@
 
 import logging
 import os
-import sys
 
-from logging.handlers import RotatingFileHandler, BufferingHandler
+from logging.handlers import RotatingFileHandler
 from logging import Formatter
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from django.conf import settings
 
-def get_logger(level=logging.DEBUG):
-    logger = logging.getLogger('easy-anime')
-    rotfile_handler = RotatingFileHandler(os.path.join(BASE_DIR, 'easy-anime.log'), maxBytes=1028*1024, backupCount=5)
-    stdout_handler = logging.StreamHandler(sys.stdout)
+def get_logger(logger_name='search', level=logging.DEBUG):
+    logger = logging.getLogger(logger_name)
+    rotfile_handler = RotatingFileHandler(os.path.join(settings.PROJECT_BASE_DIR, 'logs', 'search.log'), maxBytes=1028*1024, backupCount=5)
 
     formatter = Formatter(
         fmt='[%(asctime)s] %(filename)s:%(lineno)d %(levelname)s  %(message)s',
@@ -20,10 +18,7 @@ def get_logger(level=logging.DEBUG):
     )
     rotfile_handler.setFormatter(formatter)
     rotfile_handler.setLevel(level)
-    stdout_handler.setFormatter(formatter)
-    stdout_handler.setLevel(level)
     logger.addHandler(rotfile_handler)
-    logger.addHandler(stdout_handler)
     logger.setLevel(level)
 
     return logger

@@ -9,29 +9,43 @@
     <script src="{% static 'layer/layer.js' %}"></script>
     <script src="{% static 'bootstrap/js/bootstrap.min.js' %}"></script>
     <link href="{% static 'bootstrap/css/bootstrap.min.css' %}" rel="stylesheet" />
+    <style>
+        .status-info{
+            text-align: center;
+        }
+    </style>
 </head>
 <body style="background: #f4f4f4;">
 <div style="
-margin: 10% 5% 10% 5%;
+margin: 5%;
 padding: 3% 10% 5% 10%;
 box-shadow: 3px 3px 3px darkgray;
 background: white;
 ">
     <div class="row">
-        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="text-align:center;">
-            <h2>Takanashi Anime Search</h2>
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div style="text-align:center;">
+                <img src="{% static 'images/pikachu.png' %}" style="width: 200px;" />
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div style="text-align:center;">
+                <img src="{% static 'images/title.png' %}" />
+            </div>
         </div>
     </div>
     <hr>
     <div class="row">
-        <div class="col-lg-10 col-md-10 col-sm-12 col-xs-12">
+        <div class="col-lg-10 col-md-10 col-sm-12 col-xs-12" style="margin-bottom: 10px;">
             <input class="form-control" id="kw" placeholder="请输入anime的名称等..." />
         </div>
         <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
             <select class="form-control" id="src-select">
                 <option value="" selected>选择源站</option>
                 {% for site in src_sites %}
-                <option value="{{ site }}">{{ site }}</option>
+                <option value="{{ site.code }}">{{ site.alias }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -39,7 +53,7 @@ background: white;
     <div class="row">
         <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="text-align:center; padding-top: 5%;">
             <button class="btn btn-primary btn-lg" id="submit">
-                <span class="glyphicon glyphicon-search"></span>获取磁力链接
+                <span class="glyphicon glyphicon-search"></span>开始搜索
             </button>
         </div>
     </div>
@@ -53,21 +67,25 @@ background: white;
         data: {'csrfmiddlewaretoken': '{{ csrf_token }}'}
     });
     $(document).ready(function(){
+
+        {% if msg %}
+        layer.alert('{{ msg }}');
+        {% endif %}
+
         var queryInterval;
         function queryStatus(){
+            var uuid = $('#uuidInput').val();
             $.ajax({
                 url: '{% url 'query_status' %}',
                 type: 'get',
                 dataType: 'json',
                 data: {
-                    uuid: $('#uuidInput').val()
+                    uuid: uuid
                 },
                 success: function(data){
-                    layer.open({
-                        type: 1,
-                        content: data.msg,
-                        area: ['75%', '30%']
-                    });
+                    if (data.msg != ''){
+                        $('#'+uuid).append('<br/>' + data.msg);
+                    }
                 },
                 error: function(data){
                     layer.alert('获取信息失败');
@@ -83,9 +101,39 @@ background: white;
                 return;
             }
             var kw = $('#kw').val();
+            if (kw === ''){
+                layer.msg('未输入关键词');
+                return;
+            }
             var uuid = $('#uuidInput').val();
-            var load = layer.load('1');
-            queryInterval = setInterval(queryStatus, 3000);
+            var load = layer.load('1', {shade: 0.5});
+            var loadInfo;
+            // 对于支持实时显示进度的源站才发起
+            var needQuery = ['kisssub'];
+            if (needQuery.indexOf(srcSite) != -1){
+                queryInterval = setInterval(queryStatus, 1000);
+                loadInfo = layer.open({
+                    type: 1,
+                    skin: 'status-info',
+                    id: uuid,
+                    offset: 't',
+                    title: false,
+                    content: '<h3>【'+kw+'】开始搜索...</h3><hr><img src="{% static 'images/loading.gif' %}" style="width: 260px;" />',
+                    area: ['75%', '80%'],
+                    closeBtn: false,
+                    shade: 0.5
+                });
+            }
+            else{
+                loadInfo = layer.open({
+                    type: 1,
+                    id: uuid,
+                    title: false,
+                    content: '<img src="{% static 'images/loading.gif' %}" style="width: 300px;" />',
+                    closeBtn: false,
+                    shade: 0.5
+                });
+            }
             $.ajax({
                 url: location.pathname,
                 type: 'post',
@@ -96,10 +144,22 @@ background: white;
                     src: srcSite
                 },
                 success: function(data){
-
+                    location.href = '{% url 'res_list' %}?src='+data.src+'&cate=p&u=' + uuid;
+                },
+                error: function(xml, err, exc){
+                    var msg;
+                    try{
+                        msg = JSON.parse(xml.responseText).msg;
+                    }
+                    catch (e){
+                        msg = '未知错误';
+                    }
+                    layer.alert(msg);
                 },
                 complete: function(){
+                    clearInterval(queryInterval);
                     layer.close(load);
+                    layer.close(loadInfo);
                 }
             });
         });
