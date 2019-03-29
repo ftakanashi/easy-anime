@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 import traceback
 import sys
 
@@ -80,23 +81,45 @@ class IndexView(View):
         return searcher.search(kw)
 
     def _dmhy_search(self, kw, uuid):
+        from utils import get_proxy_channel
+        log_key = settings.QUERY_KEY.format(uuid)
+        channel = get_proxy_channel()
+
+        cmd = '{} -k {}\n'.format(channel.list_script_path, kw)
+        channel.send(cmd)    # 利用channel实时读取进度
+        save_cnt = 0
+        while True:
+            save_cnt += 1
+            if save_cnt > 99999:
+                logger.warning('Symbol of ending not detected. Force to exit.')
+                break
+            time.sleep(0.5)
+            content = channel.recv(65535).decode('utf-8')
+            if content != '':
+                if '-k {}'.format(kw) in content:
+                    pass
+                elif content.endswith('[root@kazuya ~]# '):
+                    content = content[:-17]
+                    redis.rpush(log_key, content)
+                    redis.expire(log_key, 60)
+                    break
+                else:
+                    redis.rpush(log_key, content)
+                    redis.expire(log_key, 60)
+
         from utils import get_proxy_ssh_client, close_proxy_ssh_client
         ssh = get_proxy_ssh_client()
         if ssh is None:
-            raise Exception('Failed to get ssh proxy client.')
+            raise Exception('Failed to get proxy ssh client.')
 
-        cmd = '{} -k {}'.format(ssh.list_script_path, kw)
-        stdin, stdout, stderr = ssh.exec_command(cmd)
-        out, err = stdout.read(), stderr.read()
+        cmd = 'cat {}'.format(ssh.data_json)
+        stdin,stdout,stderr = ssh.exec_command(cmd)
+        out,err = stdout.read(), stderr.read()
 
-        if not close_proxy_ssh_client(ssh):
-            logger.warning('Failed to close ssh proxy.')
-        if err != '':
-            logger.error('Failed to execute command [{}] for:{}'.format(cmd, err))
-            raise Exception(err)
-        else:
-            logger.debug(out)
-            return out
+        close_proxy_ssh_client(ssh)
+
+        return out
+
 
 class ResView(View):
     RESLIST_CACHE_KEY = settings.RESLIST_CACHE_KEY

@@ -109,7 +109,7 @@ background: white;
             var load = layer.load('1', {shade: 0.5});
             var loadInfo;
             // 对于支持实时显示进度的源站才发起
-            var needQuery = ['kisssub'];
+            var needQuery = ['kisssub', 'dmhy'];
             if (needQuery.indexOf(srcSite) != -1){
                 queryInterval = setInterval(queryStatus, 1000);
                 loadInfo = layer.open({

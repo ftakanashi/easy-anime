@@ -188,5 +188,6 @@ SSH_PROXY_CONFIG = {
 
 PROXY_SCRIPT_PATH = {
     'list': '/root/hook_scripts/dmhy_spider/list.py',
+    'data': '/root/hook_scripts/dmhy_spider/.data.json',
     'detail': '/root/hook_scripts/dmhy_spider/detail.py'
 }
