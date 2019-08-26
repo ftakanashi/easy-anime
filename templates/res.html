@@ -151,21 +151,25 @@ background: white;
             var mags = [];
             for(var i=0;i<selections.length;i++){
                 var item = selections[i];
+                var magStr = '';
                 if (src === 'kisssub'){
-                    mags.push('magnet:?xt=urn:btih:'+item.href.match(/show\-(.+)\.html/)[1]+'&tr=http://open.acgtracker.com:1096/announce');
+                    magStr = 'magnet:?xt=urn:btih:'+item.href.match(/show\-(.+)\.html/)[1]+'&tr=http://open.acgtracker.com:1096/announce';
                 }
                 else if (src === 'dmhy'){
-                    mags.push(item.magnet);
+                    magStr = item.magnet;
                 }
+                mags.push(magStr);
             }
             layer.open({
                 type: 1,
-                title: false,
-                content: '<h3 class="magnet-title">请复制以下磁链</h3><hr><div class="magnet-content">' + mags.join('<br/>') + '</div>',
+                title: '请复制以下磁链',
+                content: '<div class="magnet-content"><textarea rows="20" class="form-control" id="magnet-str-content" readonly>' + mags.join('\n') + '</textarea></div>',
                 shade: 0.5,
-                area: ['75%', '80%']
+                area: ['90%', '80%']
             });
         });
+    }).on('mouseenter', '#magnet-str-content', function(e){
+        $('#magnet-str-content').select();
     });
 </script>
 </body>
