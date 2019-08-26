@@ -99,7 +99,8 @@ class KisssubDecoder(Decoder):
 
 class KisssubSearcher(Searcher):
     QUERY_KEY = settings.QUERY_KEY
-    def __init__(self, uuid, root_url='http://kisssub.org/'):
+    def __init__(self, uuid, page_limit, root_url='http://kisssub.org/'):
+        self.page_limit = page_limit
         self.root_url = root_url
         self.key = self.QUERY_KEY.format(uuid)
 
@@ -120,12 +121,21 @@ class KisssubSearcher(Searcher):
         decoder = KisssubDecoder(first_page)
         page_num = decoder.decode_for_page()
         self.log(logging.DEBUG, '总共找到了 [{}] 页与关键词 [{}] 相关内容'.format(emph(page_num), emph(kw)))
+
+        if self.page_limit <= 0:
+            self.log(logging.DEBUG, '无指定页数限制，将爬取所有内容')
+        else:
+            self.log(logging.DEBUG, '指定页数限制为[{0}]页，只爬取前[{0}]页信息'.format(emph(self.page_limit)))
+
         page_res = decoder.decode_for_content()
         self.log(logging.DEBUG, '在第 {} 页上发现了 [{}] 行内容'.format(emph(1), emph(len(page_res))))
         search_res.extend(page_res)
 
         for i in range(page_num - 1):
             page_idx = i + 2
+            if self.page_limit > 0 and page_idx > self.page_limit:
+                self.log(logging.DEBUG, '达到在指定页数限制，不再查找信息')
+                break    # 已经超过了页数限制
             page = self.query_for_page(query_url, kw, page_idx=page_idx)
             decoder = KisssubDecoder(page)
             page_res = decoder.decode_for_content()

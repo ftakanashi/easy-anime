@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>easy anime</title>
+    <link href="{% static 'images/monsterball.png' %}" rel="SHORTCUT ICON" />
     <script src="{% static 'jquery/jquery.min.js' %}"></script>
     <script src="{% static 'jquery/jquery.cookie.js' %}"></script>
     <script src="{% static 'layer/layer.js' %}"></script>
@@ -38,7 +39,7 @@ background: white;
     </div>
     <hr>
     <div class="row">
-        <div class="col-lg-10 col-md-10 col-sm-12 col-xs-12" style="margin-bottom: 10px;">
+        <div class="col-lg-8 col-md-8 col-sm-12 col-xs-12" style="margin-bottom: 10px;">
             <input class="form-control" id="kw" placeholder="请输入anime的名称等..." />
         </div>
         <div class="col-lg-2 col-md-2 col-sm-12 col-xs-12">
@@ -47,6 +48,16 @@ background: white;
                 {% for site in src_sites %}
                 <option value="{{ site.code }}">{{ site.alias }}</option>
                 {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-2 col-md-2 col-sm-6 col-sm-6">
+            <select class="form-control" id="page-limit-select">
+                <option value="-1" selected>无页数限制</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="5">5</option>
+                <option value="10">10</option>
             </select>
         </div>
     </div>
@@ -106,6 +117,7 @@ background: white;
                 return;
             }
             var uuid = $('#uuidInput').val();
+            var pageLimit = $('#page-limit-select').val();
             var load = layer.load('1', {shade: 0.5});
             var loadInfo;
             // 对于支持实时显示进度的源站才发起
@@ -141,7 +153,8 @@ background: white;
                 data: {
                     kw: kw,
                     uuid: uuid,
-                    src: srcSite
+                    src: srcSite,
+                    pl: pageLimit
                 },
                 success: function(data){
                     location.href = '{% url 'res_list' %}?src='+data.src+'&cate=p&u=' + uuid;

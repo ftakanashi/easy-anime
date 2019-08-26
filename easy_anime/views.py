@@ -47,10 +47,15 @@ class IndexView(View):
         keyword = request.POST.get('kw')
         uuid = request.POST.get('uuid')
         src = request.POST.get('src')
+        try:
+            page_limit = int(request.POST.get('pl', -1))
+        except ValueError as e:
+            logger.warning('错误的页数限制[{}]'.format(request.POST.get('pl')))
+            page_limit = -1
 
         if src == 'kisssub':
             logger.info('Source site is kisssub.')
-            res_list = [a.to_dict() for a in self._kisssub_search(keyword, uuid)]
+            res_list = [a.to_dict() for a in self._kisssub_search(keyword, uuid, page_limit)]
             key = self.RESLIST_CACHE_KEY.format(uuid)
             redis.set(key, json.dumps(res_list))
             redis.expire(key, 60)
@@ -58,7 +63,7 @@ class IndexView(View):
         elif src == 'dmhy':
             logger.info('Source site is dmhy.')
             try:
-                output = self._dmhy_search(kw=keyword, uuid=uuid)
+                output = self._dmhy_search(kw=keyword, uuid=uuid, page_limit=page_limit)
                 data = json.loads(output)
             except Exception as e:
                 logger.error('Error when search dmhy:\n{}'.format(traceback.format_exc(e)))
@@ -75,17 +80,17 @@ class IndexView(View):
             return JsonResponse({'msg': '非法的源站，目前只支持 {} '.format(','.join(settings.VALID_SRC_SITE))}
                                 ,status=500)
 
-    def _kisssub_search(self, kw, uuid):
+    def _kisssub_search(self, kw, uuid, page_limit):
         from searcher.kisssub import KisssubSearcher as Searcher
-        searcher = Searcher(uuid)
+        searcher = Searcher(uuid, page_limit)
         return searcher.search(kw)
 
-    def _dmhy_search(self, kw, uuid):
+    def _dmhy_search(self, kw, uuid, page_limit):
         from utils import get_proxy_channel
         log_key = settings.QUERY_KEY.format(uuid)
         channel = get_proxy_channel()
 
-        cmd = '{} -k {}\n'.format(channel.list_script_path, kw)
+        cmd = '{} -k {} -l {}\n'.format(channel.list_script_path, kw, page_limit)
         channel.send(cmd)    # 利用channel实时读取进度
         save_cnt = 0
         while True:
